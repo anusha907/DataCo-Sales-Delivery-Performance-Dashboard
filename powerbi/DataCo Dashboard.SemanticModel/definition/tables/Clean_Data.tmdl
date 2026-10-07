@@ -1,0 +1,492 @@
+/// The one cleaned table, imported straight from DataCo_Cleaned.xlsx. All cleaning (XLOOKUP, IF, IFERROR, dates) was done in Excel.
+table Clean_Data
+	lineageTag: 249b8db3-6d55-4636-bf54-640db716cc7c
+
+	/// Sum of order line totals, excluding cancelled orders.
+	measure 'Total Sales' = CALCULATE ( SUM ( 'Clean_Data'[Order Item Total] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: \$#,0
+		lineageTag: f7674a15-28c3-4311-95c5-0fee0d47848f
+
+	/// Sum of order line profit, excluding cancelled orders.
+	measure 'Total Profit' = CALCULATE ( SUM ( 'Clean_Data'[Order Profit] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: \$#,0
+		lineageTag: 9afc3c1f-8fff-4f8f-b762-1be0a2a9957e
+
+	/// Total Profit as a share of Total Sales.
+	measure 'Profit Margin %' = DIVIDE ( [Total Profit], [Total Sales] )
+		formatString: 0.0%
+		lineageTag: 8547028d-4d6f-4f5a-94e9-f150f7f600ec
+
+	/// Distinct orders that were not cancelled.
+	measure 'Total Orders' = CALCULATE ( DISTINCTCOUNT ( 'Clean_Data'[Order Id] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: #,0
+		lineageTag: f237fa32-a18d-4002-9fc6-7e92cac8d16e
+
+	/// Total quantity sold, excluding cancelled orders.
+	measure 'Total Units Sold' = CALCULATE ( SUM ( 'Clean_Data'[Quantity] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: #,0
+		lineageTag: f82e1f3a-eea6-4e47-b1a5-cb9201330df8
+
+	/// Total Sales divided by Total Orders.
+	measure 'Average Order Value' = DIVIDE ( [Total Sales], [Total Orders] )
+		formatString: \$#,0.00
+		lineageTag: d556bffc-152e-4918-af41-3d2ec9d3b994
+
+	/// Sum of the discount amount, excluding cancelled orders.
+	measure 'Total Discount Given' = CALCULATE ( SUM ( 'Clean_Data'[Discount Amount] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: \$#,0
+		lineageTag: e58b2118-6fa5-4c3b-bad5-021b217de5b2
+
+	/// Orders that took longer than the shipping mode's scheduled days.
+	measure 'Late Orders' = CALCULATE ( DISTINCTCOUNT ( 'Clean_Data'[Order Id] ), 'Clean_Data'[Is Cancelled] = "No", 'Clean_Data'[On-Time Flag] = "Late" )
+		formatString: #,0
+		lineageTag: 44fcc16f-ced7-4fc8-b8fb-982b3d88ae50
+
+	/// Share of orders that arrived late.
+	measure 'Late Delivery %' = DIVIDE ( [Late Orders], [Total Orders] )
+		formatString: 0.0%
+		lineageTag: fc4fba99-134a-4d3a-bd35-24c695ec1840
+
+	/// Distinct orders with status Cancelled.
+	measure 'Cancelled Orders' = CALCULATE ( DISTINCTCOUNT ( 'Clean_Data'[Order Id] ), 'Clean_Data'[Is Cancelled] = "Yes" )
+		formatString: #,0
+		lineageTag: fc3e1d5b-4ee2-4dcd-9a7d-2386bb455301
+
+	/// Total Sales for the same period last year.
+	measure 'Sales Last Year' = CALCULATE ( [Total Sales], SAMEPERIODLASTYEAR ( 'Date'[Date] ) )
+		formatString: \$#,0
+		lineageTag: 0c667f2c-feb6-4eef-8436-c3ee9a8eae70
+
+	/// Growth in Total Sales versus the same period last year.
+	measure 'Sales YoY %' = DIVIDE ( [Total Sales] - [Sales Last Year], [Sales Last Year] )
+		formatString: +0.0%;-0.0%;0.0%
+		lineageTag: 27027312-9dbd-46b3-a303-3666dc061735
+
+	/// Year-to-date sales up to the latest date in the current selection.
+	measure 'Sales YTD' = TOTALYTD ( [Total Sales], 'Date'[Date] )
+		formatString: \$#,0
+		lineageTag: c7b1d8c6-8065-460c-ba4a-21a30771790c
+
+	/// Average monthly sales over the trailing 3 months (smooths out month-to-month noise).
+	measure 'Sales 3M Rolling Avg' =
+			VAR LastVisibleDate = MAX ( 'Date'[Date] )
+			VAR Last3Months = DATESINPERIOD ( 'Date'[Date], LastVisibleDate, -3, MONTH )
+			VAR Sales3M = CALCULATE ( [Total Sales], Last3Months )
+			VAR MonthCount = CALCULATE ( DISTINCTCOUNT ( 'Date'[Year Month] ), Last3Months )
+			RETURN
+			    DIVIDE ( Sales3M, MonthCount )
+		formatString: \$#,0
+		lineageTag: 7d6c0c8a-676e-4657-8f78-d1cd0cc1c7c2
+
+	/// Share of orders that arrived on schedule or early.
+	measure 'On-Time Delivery %' = 1 - [Late Delivery %]
+		formatString: 0.0%
+		lineageTag: db65d6c3-6395-478a-9dd2-be01ef1a52ae
+
+	/// Average shipping days promised to the customer.
+	measure 'Avg Scheduled Days' = CALCULATE ( AVERAGE ( 'Clean_Data'[Days to Ship (Scheduled)] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: 0.00
+		lineageTag: 9df2ae04-ec35-48a9-ad72-4a4ddfe7f41e
+
+	/// Average shipping days actually taken.
+	measure 'Avg Actual Days' = CALCULATE ( AVERAGE ( 'Clean_Data'[Days to Ship (Actual)] ), 'Clean_Data'[Is Cancelled] = "No" )
+		formatString: 0.00
+		lineageTag: 40869abe-5402-4c3e-b3de-1342f91c3fb8
+
+	/// Actual minus scheduled shipping days. Positive = slower than promised.
+	measure 'Avg Delay Days' = [Avg Actual Days] - [Avg Scheduled Days]
+		formatString: +0.00;-0.00;0.00
+		lineageTag: bd802cbe-8710-4a63-b518-2d5468eda044
+
+	/// Rank of each product by sales within the current selection (1 = highest). Use this in a table/matrix that groups by Product Name.
+	measure 'Product Revenue Rank' =
+			IF (
+			    ISINSCOPE ( 'Clean_Data'[Product Name] ) && NOT ISBLANK ( [Total Sales] ),
+			    RANKX ( ALLSELECTED ( 'Clean_Data'[Product Name] ), [Total Sales], , DESC, DENSE )
+			)
+		formatString: 0
+		lineageTag: d6486f9d-f892-4db3-ab81-fed159ab4ca5
+
+	/// Rank of the one selected product against every product. Use this on a card or the drill-through page (ISINSCOPE doesn't apply there since nothing is grouped).
+	measure 'Revenue Rank (Selected Product)' =
+			VAR SelectedProductSales = [Total Sales]
+			RETURN
+			    IF (
+			        HASONEVALUE ( 'Clean_Data'[Product Name] ) && NOT ISBLANK ( SelectedProductSales ),
+			        COUNTROWS ( FILTER ( ALL ( 'Clean_Data'[Product Name] ), [Total Sales] > SelectedProductSales ) ) + 1
+			    )
+		formatString: 0
+		lineageTag: c4343092-715a-4ee7-b120-4a7cb2838265
+
+	/// Pareto share: this product's sales plus every product that sells more, as a share of total sales.
+	measure 'Cumulative Sales %' =
+			VAR CurrentSales = [Total Sales]
+			VAR ProductSales =
+			    ADDCOLUMNS ( ALLSELECTED ( 'Clean_Data'[Product Name] ), "@Sales", [Total Sales] )
+			VAR TotalSales = SUMX ( ProductSales, [@Sales] )
+			VAR CumulativeSales =
+			    SUMX ( FILTER ( ProductSales, [@Sales] >= CurrentSales ), [@Sales] )
+			RETURN
+			    IF (
+			        ISINSCOPE ( 'Clean_Data'[Product Name] ) && NOT ISBLANK ( CurrentSales ),
+			        DIVIDE ( CumulativeSales, TotalSales )
+			    )
+		formatString: 0.0%
+		lineageTag: 31e90b3e-6244-4de0-9626-1af54d2d7940
+
+	/// A = products that together make the first 80% of sales, B = the next 15%, C = the last 5%.
+	measure 'ABC Class' =
+			VAR CumulativeShare = [Cumulative Sales %]
+			VAR CurrentSales = [Total Sales]
+			VAR TotalSales = SUMX ( ALLSELECTED ( 'Clean_Data'[Product Name] ), [Total Sales] )
+			VAR ShareBeforeThisProduct = CumulativeShare - DIVIDE ( CurrentSales, TotalSales )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( CumulativeShare ),
+			        SWITCH ( TRUE (), ShareBeforeThisProduct < 0.80, "A", ShareBeforeThisProduct < 0.95, "B", "C" )
+			    )
+		lineageTag: c9df4dea-5abb-4a9e-bd7f-4083fef6aabd
+
+	/// Discount that would apply if every line's discount rate were cut by the slider amount (never below 0%).
+	measure 'Simulated Discount Amount' =
+			VAR Cut = [Discount Cut Value] / 100
+			RETURN
+			    CALCULATE (
+			        SUMX ( 'Clean_Data', 'Clean_Data'[Product Price] * 'Clean_Data'[Quantity] * MAX ( 0, 'Clean_Data'[Discount Rate] - Cut ) ),
+			        'Clean_Data'[Is Cancelled] = "No"
+			    )
+		formatString: \$#,0
+		lineageTag: f0314083-8132-4717-b54b-701db9929c58
+
+	/// Sales if the discount cut were applied: gross sales minus the simulated discount.
+	measure 'Simulated Sales' = ( [Total Sales] + [Total Discount Given] ) - [Simulated Discount Amount]
+		formatString: \$#,0
+		lineageTag: ff3b7988-cafc-47b7-9897-62b43858e3af
+
+	/// Every dollar of discount removed becomes profit.
+	measure 'Simulated Profit' = [Total Profit] + [Total Discount Given] - [Simulated Discount Amount]
+		formatString: \$#,0
+		lineageTag: 0dbd4b77-f059-4c58-b197-17f690632b9d
+
+	/// Simulated profit minus actual profit.
+	measure 'Profit Impact' = [Simulated Profit] - [Total Profit]
+		formatString: +\$#,0;-\$#,0;\$0
+		lineageTag: 5856df11-c30d-40e4-8922-1671a1d896eb
+
+	/// Profit impact as a share of actual profit.
+	measure 'Profit Impact %' = DIVIDE ( [Profit Impact], [Total Profit] )
+		formatString: +0.0%;-0.0%;0.0%
+		lineageTag: 45828429-51ff-4681-8b8b-4fc87580e04f
+
+	column 'Order Id'
+		dataType: int64
+		isHidden
+		lineageTag: 64e618be-4f9b-4cee-9f11-841ba49b4923
+		summarizeBy: none
+		sourceColumn: Order Id
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Item Id'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: f2195b70-14ba-4764-8d2a-c51b7703dbb9
+		summarizeBy: none
+		sourceColumn: Order Item Id
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Date'
+		dataType: dateTime
+		formatString: Short Date
+		lineageTag: a4fcbcc7-0f59-4bac-a4ba-bdf75348e376
+		summarizeBy: none
+		sourceColumn: Order Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Shipping Date'
+		dataType: dateTime
+		isHidden
+		formatString: Short Date
+		lineageTag: 3f90a264-ec16-4cf1-9b47-e05fd9aa2200
+		summarizeBy: none
+		sourceColumn: Shipping Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Shipping Mode'
+		dataType: string
+		lineageTag: 80693b60-73b9-468b-961e-6127384dfe6a
+		summarizeBy: none
+		sourceColumn: Shipping Mode
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Days to Ship (Actual)'
+		dataType: int64
+		isHidden
+		lineageTag: 6866fb53-de33-4db8-bccd-51103a386e12
+		summarizeBy: none
+		sourceColumn: Days to Ship (Actual)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Days to Ship (Scheduled)'
+		dataType: int64
+		isHidden
+		lineageTag: 627abff0-6cff-44ed-af0d-c27fae03e694
+		summarizeBy: none
+		sourceColumn: Days to Ship (Scheduled)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Shipping Delay (Days)'
+		dataType: int64
+		isHidden
+		lineageTag: 7579b641-ed03-491d-b621-07fb6f08ed06
+		summarizeBy: none
+		sourceColumn: Shipping Delay (Days)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'On-Time Flag'
+		dataType: string
+		lineageTag: 0cac98d9-982d-422b-a80a-e2224aa3f821
+		summarizeBy: none
+		sourceColumn: On-Time Flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Status'
+		dataType: string
+		isHidden
+		lineageTag: 054bea7d-1688-45dd-a41d-8869174e9518
+		summarizeBy: none
+		sourceColumn: Order Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Is Cancelled'
+		dataType: string
+		isHidden
+		lineageTag: f03f04b0-f0b6-4e2b-a66d-3eaa751aaf67
+		summarizeBy: none
+		sourceColumn: Is Cancelled
+
+		annotation SummarizationSetBy = Automatic
+
+	column Category
+		dataType: string
+		lineageTag: 180ed459-72b7-42b7-b35f-2f488dfc1a51
+		summarizeBy: none
+		sourceColumn: Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Product Name'
+		dataType: string
+		lineageTag: 445086db-b781-433e-a743-91c2f76e103b
+		summarizeBy: none
+		sourceColumn: Product Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Product Price'
+		dataType: double
+		isHidden
+		formatString: \$#,0.00
+		lineageTag: 685bec98-8fe4-4676-a05f-9334f3435fa3
+		summarizeBy: none
+		sourceColumn: Product Price
+
+		annotation SummarizationSetBy = Automatic
+
+	column Quantity
+		dataType: int64
+		isHidden
+		lineageTag: 28dff55b-3296-4560-a469-00663389edad
+		summarizeBy: none
+		sourceColumn: Quantity
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Discount Rate'
+		dataType: double
+		isHidden
+		formatString: 0%
+		lineageTag: 059d044e-9799-4a8d-b40a-56985a14aa10
+		summarizeBy: none
+		sourceColumn: Discount Rate
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Discount Amount'
+		dataType: double
+		isHidden
+		formatString: \$#,0.00
+		lineageTag: 382ea89e-1ac2-4983-b35d-8fbfed58e74e
+		summarizeBy: none
+		sourceColumn: Discount Amount
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Item Total'
+		dataType: double
+		isHidden
+		formatString: \$#,0.00
+		lineageTag: 0f37c5f2-6cce-413f-b132-fcb341d89015
+		summarizeBy: none
+		sourceColumn: Order Item Total
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Profit'
+		dataType: double
+		isHidden
+		formatString: \$#,0.00
+		lineageTag: 8b98a6fc-5fec-409d-a85e-17d9e0398518
+		summarizeBy: none
+		sourceColumn: Order Profit
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Line Profit Margin %'
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: 89826247-64e3-49bd-81d1-1be2e6e0f102
+		summarizeBy: none
+		sourceColumn: Profit Margin %
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Customer Segment'
+		dataType: string
+		lineageTag: 2e131070-4bff-4ba0-8431-d8c9674978d8
+		summarizeBy: none
+		sourceColumn: Customer Segment
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Customer City'
+		dataType: string
+		isHidden
+		lineageTag: 2e06d9d5-7011-4dc7-adb6-996462ba1d10
+		summarizeBy: none
+		sourceColumn: Customer City
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Customer State'
+		dataType: string
+		isHidden
+		lineageTag: 8e0322ad-139c-436d-b547-8a6372129f0f
+		summarizeBy: none
+		sourceColumn: Customer State
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Customer Country'
+		dataType: string
+		isHidden
+		lineageTag: 55207ead-2254-4fb8-a6d3-8a6203a15d81
+		summarizeBy: none
+		sourceColumn: Customer Country
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Ship-To Country'
+		dataType: string
+		lineageTag: 38fc80a6-dae0-45b7-8933-c4d04d2a631b
+		summarizeBy: none
+		sourceColumn: Ship-To Country
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Region'
+		dataType: string
+		lineageTag: 9a5280a9-c8cf-426e-b3b9-6d9694a45163
+		summarizeBy: none
+		sourceColumn: Order Region
+
+		annotation SummarizationSetBy = Automatic
+
+	column Market
+		dataType: string
+		isHidden
+		lineageTag: 70d78ccb-0587-407c-a9c0-92a98fc9f89f
+		summarizeBy: none
+		sourceColumn: Market
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Year'
+		dataType: int64
+		isHidden
+		lineageTag: 5552a02c-8123-40ce-a8f6-33f2493f9cb8
+		summarizeBy: none
+		sourceColumn: Order Year
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Month'
+		dataType: string
+		isHidden
+		lineageTag: 5fc2ae02-1cbb-4743-8f4b-feb853e32291
+		summarizeBy: none
+		sourceColumn: Order Month
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Data Quality Flag'
+		dataType: string
+		isHidden
+		lineageTag: b1920b3e-bc9c-4951-8fc8-1a717da1d20f
+		summarizeBy: none
+		sourceColumn: Data Quality Flag
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Clean_Data = m
+		mode: import
+		source =
+				let
+				    // Pull the already-cleaned table straight out of the Excel workbook - no
+				    // transformation logic here, the cleaning was done with formulas in Excel.
+				    Source = Excel.Workbook(File.Contents(DataFolder & "DataCo_Cleaned.xlsx"), null, true),
+				    CleanData_Table = Source{[Item = "CleanData", Kind = "Table"]}[Data],
+				    // Excel.Workbook's automatic type detection isn't reliable column by column
+				    // (it guessed "text" for some number columns), so every column is typed
+				    // explicitly here instead of trusting the auto-detected types.
+				    #"Changed Types" = Table.TransformColumnTypes(
+				        CleanData_Table,
+				        {
+				            {"Order Id", Int64.Type}, {"Order Item Id", Int64.Type},
+				            {"Order Date", type date}, {"Shipping Date", type date},
+				            {"Shipping Mode", type text},
+				            {"Days to Ship (Actual)", Int64.Type}, {"Days to Ship (Scheduled)", Int64.Type},
+				            {"Shipping Delay (Days)", Int64.Type},
+				            {"On-Time Flag", type text}, {"Order Status", type text}, {"Is Cancelled", type text},
+				            {"Category", type text}, {"Product Name", type text},
+				            {"Product Price", type number}, {"Quantity", Int64.Type},
+				            {"Discount Rate", type number}, {"Discount Amount", type number},
+				            {"Order Item Total", type number}, {"Order Profit", type number},
+				            {"Profit Margin %", type number},
+				            {"Customer Segment", type text}, {"Customer City", type text},
+				            {"Customer State", type text}, {"Customer Country", type text},
+				            {"Ship-To Country", type text}, {"Order Region", type text}, {"Market", type text},
+				            {"Order Year", Int64.Type}, {"Order Month", type text}, {"Data Quality Flag", type text}
+				        },
+				        "en-US"
+				    )
+				in
+				    #"Changed Types"
+
+	annotation PBI_ResultType = Table
+

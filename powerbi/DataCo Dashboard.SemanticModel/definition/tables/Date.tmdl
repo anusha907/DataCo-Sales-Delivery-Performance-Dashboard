@@ -1,0 +1,64 @@
+/// Calendar table built with DAX; marked as the model's date table.
+table Date
+	lineageTag: 90419de4-8f7c-4412-91d2-8972502bbb61
+	dataCategory: Time
+
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: Short Date
+		lineageTag: 67797ea8-1b2e-4a4b-ac35-e85080a94133
+		summarizeBy: none
+		sourceColumn: [Date]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 1d137b05-6de2-4448-bab2-54d140a962f3
+		summarizeBy: none
+		sourceColumn: [Year]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Number'
+		dataType: int64
+		isHidden
+		lineageTag: 7a30d235-3ff5-43f7-8db5-33b6a8956a40
+		summarizeBy: none
+		sourceColumn: [Month Number]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Month
+		dataType: string
+		lineageTag: 5e262be5-591d-466a-8071-e1caefc8fd2b
+		summarizeBy: none
+		sourceColumn: [Month]
+		sortByColumn: 'Month Number'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Year Month'
+		dataType: string
+		lineageTag: 7851c497-6987-431e-b664-a40d1a194468
+		summarizeBy: none
+		sourceColumn: [Year Month]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Date = calculated
+		mode: import
+		source =
+				// Hard-coded to the known range of the sample (2015-2017) instead of
+				// MIN/MAX over Clean_Data, so this table never depends on another table
+				// having finished loading first.
+				ADDCOLUMNS (
+				    CALENDAR ( DATE ( 2015, 1, 1 ), DATE ( 2017, 12, 31 ) ),
+				    "Year", YEAR ( [Date] ),
+				    "Month Number", MONTH ( [Date] ),
+				    "Month", FORMAT ( [Date], "MMM" ),
+				    "Year Month", FORMAT ( [Date], "yyyy-MM" )
+				)
+

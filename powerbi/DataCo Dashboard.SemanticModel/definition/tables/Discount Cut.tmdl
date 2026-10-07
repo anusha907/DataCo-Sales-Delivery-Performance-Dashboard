@@ -1,0 +1,28 @@
+/// What-if parameter: percentage points removed from every discount rate on the simulator page.
+table 'Discount Cut'
+	lineageTag: 255f56c5-5865-42e6-9fe3-6799ba3b6740
+
+	/// Value picked on the Discount Cut slider (defaults to 0).
+	measure 'Discount Cut Value' = SELECTEDVALUE ( 'Discount Cut'[Discount Cut (pts)], 0 )
+		formatString: 0
+		displayFolder: Parameters
+		lineageTag: e0a87896-c391-4970-a608-3bf58218dbfd
+
+	column 'Discount Cut (pts)'
+		dataType: int64
+		formatString: 0
+		lineageTag: f93885db-bc2e-4c87-861d-074752b8bc1b
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+	partition 'Discount Cut' = calculated
+		mode: import
+		source = GENERATESERIES ( 0, 10, 1 )
+

@@ -1,0 +1,4 @@
+relationship ffa61690-7352-5891-aef3-fd571e9025ef
+	fromColumn: Clean_Data.'Order Date'
+	toColumn: Date.Date
+

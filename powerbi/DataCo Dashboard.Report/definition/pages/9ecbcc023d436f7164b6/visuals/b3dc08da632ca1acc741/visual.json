@@ -1,0 +1,72 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "b3dc08da632ca1acc741",
+  "position": {
+    "x": 620,
+    "y": 80,
+    "z": 6000,
+    "height": 90,
+    "width": 190,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Clean_Data"
+                    }
+                  },
+                  "Property": "Revenue Rank (Selected Product)"
+                }
+              },
+              "queryRef": "Clean_Data.Revenue Rank (Selected Product)",
+              "nativeQueryRef": "Revenue Rank (Selected Product)",
+              "displayName": "Revenue Rank"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "6e06c2d5b5f37b074cfd",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Clean_Data"
+              }
+            },
+            "Property": "Revenue Rank (Selected Product)"
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
+  }
+}
